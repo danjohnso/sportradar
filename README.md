@@ -20,3 +20,15 @@
   * Penalty Minutes
 
 * We should be able to query the database for up-to-date stats during, and after, a live game.
+
+# Development Notes
+
+* If this was a longer lived thing, I would probably take the time to generate type definitions from the API with Swagger Code Gen, but I will just "blindly" parse for now
+
+* Config file matching environment name is needed to fill in missing database connection info, ie development.json in the config folder
+
+* https://typeorm.io
+  * Migrations
+    * **Generate:** yarn migration:generate ./src/db/migration/{Name}
+    * **Run:** yarn migration:run
+    * **Revert:** yarn migration:revert

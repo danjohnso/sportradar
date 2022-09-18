@@ -1,0 +1,13 @@
+{ 
+    "db": {
+        "host": "localhost",
+        "port": 3306,
+        "username": "",
+        "password": "",
+        "database": "sportradar"
+    },
+    "api": {
+        "baseUrl": "https://statsapi.web.nhl.com/api/v1",
+        "refreshInterval": 10
+    }
+}

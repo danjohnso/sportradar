@@ -8,8 +8,12 @@
 // think about if we make this just process schedules that get fed
 
 
-export class ScheduleWatcher {
+export class ScheduleManager {
     constructor() {
         
+    }
+
+    Start() {
+        console.log("One last thing....");
     }
 }

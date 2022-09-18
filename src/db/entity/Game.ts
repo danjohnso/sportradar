@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryColumn, OneToMany, ManyToOne, JoinColumn } from "typeorm"
+import { GameStatus } from "../../classes/GameStatus";
 import { GamePlayer } from "./GamePlayer";
 import { Team } from "./Team";
 
@@ -8,7 +9,7 @@ export class Game {
     Id: number;
 
     @Column()
-    GameStatus!: string;
+    GameStatus!: GameStatus;
 
     @Column()
     LastUpdate: string;

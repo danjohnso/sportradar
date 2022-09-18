@@ -11,7 +11,13 @@ interface APIConfig {
     refreshInterval: number;
 }
 
+interface GameConfig {
+    /** Configuration for loading specific Game IDs during offseason or for other reasons to reprocess their final state */
+    reloadGames: number[]; 
+}
+
 interface AppConfig {
-    //db: DBConfig;
+    db: DBConfig;
     api: APIConfig;
+    game: GameConfig;
 }

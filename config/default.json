@@ -9,5 +9,8 @@
     "api": {
         "baseUrl": "https://statsapi.web.nhl.com/api/v1",
         "refreshInterval": 10
+    },
+    "game": {
+        "reloadGames": []
     }
 }

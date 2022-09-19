@@ -12,7 +12,7 @@ export default class GameProcessor {
     private readonly _gameRepo: Repository<Game>;
     private readonly _gameId: number;
     private _isRunning: boolean = false;
-    private _feedInterval?: NodeJS.Timer;
+    private _processInterval?: NodeJS.Timer;
 
     constructor(args: string[]) {
         this._gameId = Number.parseInt(args[2]);
@@ -21,9 +21,9 @@ export default class GameProcessor {
         process.on("message", async (message) => {
             if (message == GAME_PROCESSOR_MESSAGES.START) {
                 if (this._isRunning) {
-                    console.error("[GP] Game processor is already running, cannot call StartGame again")
+                    console.error("[GP] Game processor is already running, cannot call Start again")
                 } else {
-                    await this.StartGame();
+                    await this.Start();
                 }
             } else if (message == GAME_PROCESSOR_MESSAGES.STOP) {
                 this.CleanAndExit(GAME_PROCESSOR_EXIT_CODES.EXTERNAL_STOP);
@@ -34,7 +34,7 @@ export default class GameProcessor {
         });
     }
 
-    private async StartGame(): Promise<void> {
+    private async Start(): Promise<void> {
         //No idea what the overhead of doing this at the beginning of a game
         //Depending on use cases and other requirements, preloading teams and players into the DB would help improve this startup
         this._isRunning = true;
@@ -145,7 +145,7 @@ export default class GameProcessor {
             } else {
                 // looks like a wait time in seconds since the API isn't key/token driven, I assume IP will get throttled if we don't respect
                 const waitTime: number = data["metaData"]["wait"];
-                this._feedInterval = setInterval(this.ProcessUpdates, waitTime * 1000);
+                this._processInterval = setInterval(() => this.ProcessUpdates(), waitTime * 1000);
             }
         } catch (error) {
             console.error("[GP] Unexpected error in StartGame, shutting down game processor: " + error);
@@ -256,8 +256,8 @@ export default class GameProcessor {
         console.log(`[GP] Closing game processing of ${this._gameId} with exit code: ${exitCode}`);
         
         //shutdown the loop if its running
-        if (this._feedInterval !== null) {
-            clearInterval(this._feedInterval);
+        if (this._processInterval !== null) {
+            clearInterval(this._processInterval);
         }
 
         process.exit(exitCode);
@@ -266,6 +266,6 @@ export default class GameProcessor {
     //Unknown if needed....
     private GetCurrentTimecode(): string {
         const now = new Date();
-        return `${now.getUTCFullYear()}${now.getUTCMonth()}${now.getUTCDay()}_${now.getUTCHours()}${now.getUTCMinutes()}${now.getUTCSeconds()}`;
+        return `${now.getUTCFullYear()}${now.getUTCMonth()+1}${now.getUTCDate()}_${now.getUTCHours()}${now.getUTCMinutes()}${now.getUTCSeconds()}`;
     }
 }

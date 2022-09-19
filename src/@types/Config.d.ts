@@ -8,7 +8,8 @@ interface DBConfig {
 
 interface APIConfig {
     baseUrl: string; 
-    refreshInterval: number;
+    scheduleRefreshInterval: number;
+    scheduleRefreshLongInterval: number;
 }
 
 interface GameConfig {

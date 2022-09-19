@@ -4,7 +4,7 @@ import axiosRetry from 'axios-retry';
 import { AppDataSource } from "./db/data-source";
 import * as config from "config";
 import GameManager from "./GameManager";
-import { ScheduleManager } from "./ScheduleManager";
+import { ScheduleProcessor } from "./ScheduleProcessor";
 
 const apiConfig: APIConfig = config.get("api");
 
@@ -15,7 +15,7 @@ axiosRetry(axios, { retryDelay: axiosRetry.exponentialDelay });
 
 console.debug("[App] Axios configured, initializing database connectivity");
 
-AppDataSource.initialize().then(() => {
+AppDataSource.initialize().then(async () => {
     console.debug("[App] Database connection initialized, checking configuration for games to reload");
 
     const gameConfig: GameConfig = config.get("game");
@@ -32,10 +32,10 @@ AppDataSource.initialize().then(() => {
         console.debug("[App] No games to reload");
     }
 
-    console.debug("[App] Launching ScheduleManager");
+    console.debug("[App] Launching ScheduleProcessor");
     
-    const scheduleManager = new ScheduleManager();
-    scheduleManager.Start();
+    const scheduleProcessor = new ScheduleProcessor();
+    await scheduleProcessor.Start();
 
-    console.debug("[App] ScheduleManager launched");
+    console.debug("[App] ScheduleProcessor launched");
 }).catch(error => console.error("[App] Error initializing database: " + error));

@@ -20,7 +20,7 @@
       "typeorm": "0.3.9"
    },
    "scripts": {
-      "start": "ts-node src/init.ts",
+      "start": "ts-node src/app.ts",
       "typeorm": "typeorm-ts-node-esm",
       "migration:run": "yarn typeorm migration:run -d ./src/db/data-source.ts",
       "migration:revert": "yarn typeorm migration:revert -d ./src/db/data-source.ts",

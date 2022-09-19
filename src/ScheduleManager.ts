@@ -14,6 +14,6 @@ export class ScheduleManager {
     }
 
     Start() {
-        console.log("One last thing....");
+        console.log("[SM] One last thing....");
     }
 }

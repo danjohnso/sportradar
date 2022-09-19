@@ -1,24 +1,12 @@
 import axios from "axios";
 import { Repository } from "typeorm";
+import { GAME_PROCESSOR_MESSAGES, GAME_PROCESSOR_EXIT_CODES } from "./classes/GameProcessorMessages";
 import { GameStatus } from "./classes/GameStatus";
-import AppDataSource from "./db/data-source";
+import { AppDataSource } from "./db/data-source";
 import { Game } from "./db/entity/Game";
 import { GamePlayer } from "./db/entity/GamePlayer";
 import { Player } from "./db/entity/Player";
 import { Team } from "./db/entity/Team";
-
-export enum GAME_PROCESSOR_MESSAGES {
-    START = 0,
-    STOP = 1
-}
-
-export enum GAME_PROCESSOR_EXIT_CODES {
-    EXTERNAL_STOP = -1,
-    SUCCESS = 0,
-    LOAD_DATA_EXCEPTION = 1,
-    START_GAME_EXCEPTION = 2,
-    UPDATE_GAME_EXCEPTION = 3,
-}
 
 export default class GameProcessor {
     private readonly _gameRepo: Repository<Game>;
@@ -27,13 +15,13 @@ export default class GameProcessor {
     private _feedInterval?: NodeJS.Timer;
 
     constructor(args: string[]) {
-        this._gameId = Number.parseInt(args[0]);
+        this._gameId = Number.parseInt(args[2]);
         this._gameRepo = AppDataSource.getRepository(Game);
 
         process.on("message", async (message) => {
             if (message == GAME_PROCESSOR_MESSAGES.START) {
                 if (this._isRunning) {
-                    console.error("Game processor is already running, cannot call StartGame again")
+                    console.error("[GP] Game processor is already running, cannot call StartGame again")
                 } else {
                     await this.StartGame();
                 }
@@ -41,7 +29,7 @@ export default class GameProcessor {
                 this.CleanAndExit(GAME_PROCESSOR_EXIT_CODES.EXTERNAL_STOP);
             } else {
                 //dev mistake in messaging
-                console.warn("Unknown message sent: " + message);
+                console.warn("[GP] Unknown message sent: " + message);
             }
         });
     }
@@ -50,6 +38,8 @@ export default class GameProcessor {
         //No idea what the overhead of doing this at the beginning of a game
         //Depending on use cases and other requirements, preloading teams and players into the DB would help improve this startup
         this._isRunning = true;
+
+        console.log(`[GP] Starting game processing of ${this._gameId}`);
 
         try {
             //see if this game was already started, like this game was started but didn't finish processing
@@ -60,7 +50,7 @@ export default class GameProcessor {
             //load the game
             let data = await this.LoadData();
 
-            if (game === null) {
+            if (game !== null) {
                 // in case we are restarting this process for a game we already stored, update the game and let the timer kick back off again
                 await this.UpdateGame(data);
             } else {
@@ -102,12 +92,18 @@ export default class GameProcessor {
                 }
             
                 //Players
-                const playerRepo = AppDataSource.getRepository(Player);     
+                const playerRepo = AppDataSource.getRepository(Player); 
+                const gamePlayerRepo = AppDataSource.getRepository(GamePlayer);      
+                const players: Player[] = [];
+                const gamePlayers: GamePlayer[] = [];
+                
+                const jsonPlayers = this.GetPlayers(data);     
+                const playerKeys = Object.keys(jsonPlayers);
 
-                const players = data["gameData"]["players"];
-                players.forEach(async (player) => {
-                    //making assumption we just want players that are active.  Just extra overhead to record players that won't have stats
-                    if (player["active"]) {
+                for (let index = 0; index < playerKeys.length; index++) {
+                    let player = jsonPlayers[playerKeys[index]];
+                    //making assumption we just want players that are active and assigned numbers.  Just extra overhead to record players that won't have stats
+                    if (player["active"] && player["primaryNumber"] !== undefined) {
                         const playerId: number = player["id"];
 
                         let dbPlayer = await playerRepo.findOneBy({
@@ -116,9 +112,9 @@ export default class GameProcessor {
                 
                         if (dbPlayer === null) {
                             dbPlayer = new Player()
-                            awayTeam.Id = playerId;
-                            dbPlayer.FullName = player["name"];
-                            await playerRepo.save(player);
+                            dbPlayer.Id = playerId;
+                            dbPlayer.FullName = player["fullName"];
+                            players.push(dbPlayer);
                         }
 
                         let gamePlayer = new GamePlayer();
@@ -128,18 +124,19 @@ export default class GameProcessor {
                         gamePlayer.Age = player["currentAge"];
                         gamePlayer.JerseyNumber = player["primaryNumber"];
                         gamePlayer.PrimaryPosition = player["primaryPosition"]["code"];
+                        gamePlayer.Assists = player["assists"] ?? 0;
+                        gamePlayer.Goals = player["goals"] ?? 0;
+                        gamePlayer.Hits = player["hits"] ?? 0;
+                        gamePlayer.Points = gamePlayer.Assists + gamePlayer.Goals;
+                        gamePlayer.PenaltyMinutes = player["penaltyMinutes"] ?? 0;
 
-                        gamePlayer.Assists = player["primaryNumber"];
-                        gamePlayer.Goals = player["primaryNumber"];
-                        gamePlayer.Hits = player["primaryNumber"];
-                        gamePlayer.Points = player["primaryNumber"];
-                        gamePlayer.PenaltyMinutes = player["primaryNumber"];
+                        gamePlayers.push(gamePlayer);
+                    }      
+                }       
 
-                        game.Players.push(gamePlayer);
-                    }            
-                });       
-
+                await playerRepo.save(players);
                 await this._gameRepo.save(game);
+                await gamePlayerRepo.save(gamePlayers);
             }
 
             if (game.GameStatus == GameStatus.FinalFinal || game.GameStatus == GameStatus.FinalFinalAgain) {
@@ -151,7 +148,7 @@ export default class GameProcessor {
                 this._feedInterval = setInterval(this.ProcessUpdates, waitTime * 1000);
             }
         } catch (error) {
-            console.error("Unexpected error in StartGame, shutting down game processor: " + error);
+            console.error("[GP] Unexpected error in StartGame, shutting down game processor: " + error);
             this.CleanAndExit(GAME_PROCESSOR_EXIT_CODES.START_GAME_EXCEPTION);
         }
     }
@@ -174,10 +171,27 @@ export default class GameProcessor {
             game.GameStatus = this.GetGameStatus(data);
             game.LastUpdate = this.GetLastUpdate(data);
 
-            //GamePlayers
+            const playerRepo = AppDataSource.getRepository(GamePlayer);
 
+            //GamePlayers
+            const players = this.GetPlayers(data);
+            const dbPlayers = await playerRepo.findBy({
+                GameId: this._gameId
+            });
+
+            dbPlayers.forEach((dbPlayer) => {
+                let player = players["ID"+dbPlayer.PlayerId];
+
+                dbPlayer.Assists = player["assists"] ?? 0;
+                dbPlayer.Goals = player["goals"] ?? 0;
+                dbPlayer.Hits = player["hits"] ?? 0;
+                dbPlayer.Points = dbPlayer.Assists + dbPlayer.Goals;
+                dbPlayer.PenaltyMinutes = player["penaltyMinutes"] ?? 0;
+            });
+
+            await playerRepo.save(dbPlayers);
         } catch (error) {
-            console.error("Unknown error in UpdateGame, shutting down game processor: " + error);
+            console.error("[GP] Unknown error in UpdateGame, shutting down game processor: " + error);
             this.CleanAndExit(GAME_PROCESSOR_EXIT_CODES.UPDATE_GAME_EXCEPTION);
         }
     }
@@ -204,7 +218,7 @@ export default class GameProcessor {
             const { data } = await axios.get(requestUrl);
             return data;
         } catch (error) {
-            console.error("Unknown error in game data load, shutting down game processor: " + error);
+            console.error("[GP] Unknown error in game data load, shutting down game processor: " + error);
             this.CleanAndExit(GAME_PROCESSOR_EXIT_CODES.LOAD_DATA_EXCEPTION);
         }
     }
@@ -221,8 +235,25 @@ export default class GameProcessor {
         return data["metaData"]["timeStamp"];
     }
 
+    private GetPlayers(data: JSON): Record<string,any> {
+        const players = data["gameData"]["players"];
+
+        const awayPlayers = data["liveData"]["boxscore"]["teams"]["away"]["players"];
+        const homePlayers = data["liveData"]["boxscore"]["teams"]["home"]["players"];
+
+        const playersStats = Object.assign({}, awayPlayers, homePlayers);
+
+        Object.keys(players).forEach((key) => {
+            let player = players[key];
+            const playerStats = playersStats[key]["stats"]["skaterStats"];
+            player = Object.assign(player, playerStats);
+        });
+
+        return players;
+    }
+
     private CleanAndExit(exitCode: GAME_PROCESSOR_EXIT_CODES): void {
-        console.log("Closing with exit code: " + exitCode);
+        console.log(`[GP] Closing game processing of ${this._gameId} with exit code: ${exitCode}`);
         
         //shutdown the loop if its running
         if (this._feedInterval !== null) {

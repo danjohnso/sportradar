@@ -9,7 +9,7 @@ export class Game {
     Id: number;
 
     @Column()
-    GameStatus!: GameStatus;
+    GameStatus: GameStatus = 1;
 
     @Column()
     LastUpdate: string;

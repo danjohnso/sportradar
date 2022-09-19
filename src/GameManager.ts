@@ -1,8 +1,8 @@
 import { fork, ChildProcess } from 'child_process';
-import { GAME_PROCESSOR_MESSAGES } from './GameProcessor';
+import { GAME_PROCESSOR_MESSAGES } from './classes/GameProcessorMessages';
 
 export default class GameManager {
-    private _processes: Record<number,ChildProcess>;
+    private _processes: Record<number,ChildProcess> = {};
     
     //making this a singleton so schedule manager and the config based games can share state
     static instance: GameManager;
@@ -16,23 +16,23 @@ export default class GameManager {
 
     StartGame(gameId: number) {
         if (this._processes[gameId] !== undefined) {
-            console.warn("Game is already being processed");
+            console.warn("[GM] Game is already being processed");
         } else {
-            const process = fork("./src/GameProcessor");
+            const process = fork(`${__dirname}/game-app`, [gameId.toString()]);
 
             process.on('error', (err: Error) => {
-                console.error("[GP] Error: " + err);
+                console.error("[GM] Error: " + err);
             });
 
             process.once('exit', (code?: number, signal?: NodeJS.Signals) => {
                 if (code !== 0) {
-                    console.error("[GP] Exited with Code: " + code);
-                } else {
-                    console.log("[GP] Exited with Success");
+                    console.error("[GM] Exited with Code: " + code);
                 }
 
                 delete this._processes[gameId];
             });
+
+            process.send(GAME_PROCESSOR_MESSAGES.START);
 
             this._processes[gameId] = process;
         }

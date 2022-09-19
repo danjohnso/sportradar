@@ -16,9 +16,9 @@ const options: MysqlConnectionOptions = {
     synchronize: true,
     logging: false,
     //namingStrategy: , nothing by default that allows Pascal sadly 
-    entities: ["./src/db/entity/*.ts"],
-    migrations: ["./src/db/migration/*.ts"],
+    entities: [`${__dirname}/entity/*.{ts,js}`],
+    migrations: [`${__dirname}/migration/*.{ts,js}`],
     subscribers: [],
 };
 
-export default new DataSource(options);
+export const AppDataSource = new DataSource(options); 

@@ -23,15 +23,21 @@
 
 # Development Notes
 
-* If this was a longer lived thing, I would probably take the time to generate type definitions from the API with Swagger Code Gen, but I will just "blindly" parse for now
-* Config file matching environment name is needed to fill in missing database connection info, ie development.json in the config folder
-* When a game is actually over is ambiguous without more info, assuming FinalFinal or FinalFinalAgain is when it is actually over 
-* Allowing reloading of old games through the configuration file.  Lots of options here depending on use cases, so just using a config value for simplicity.
+  ## Setup
+    Fill in database config
+    yarn install
+    yarn migration:run
+    yarn start (or use vscode launch/debug)
 
-* Does the API start rejecting requests for running operations against lots of games at once (same IP source)?  Reloading could be bad in that case...
+  ## Notes
+  * If this was a longer lived thing, I would probably take the time to generate type definitions from the API with Swagger Code Gen, but I will just "blindly" parse for now
+  * Config file matching environment name is needed to fill in missing database connection info, ie development.json in the config folder
+  * When a game is actually over is ambiguous without more info, assuming FinalFinal or FinalFinalAgain is when it is actually over 
+  * Allowing reloading of old games through the configuration file.  Lots of options here depending on use cases, so just using a config value for simplicity.
+  * Does the API start rejecting requests for running operations against lots of games at once (same IP source)?  Reloading could be bad in that case...
 
-* https://typeorm.io
+## https://typeorm.io
   * Migrations
-    * **Generate:** yarn migration:generate ./src/db/migration/{Name}
     * **Run:** yarn migration:run
+    * **Generate:** yarn migration:generate ./src/db/migration/{Name}
     * **Revert:** yarn migration:revert
